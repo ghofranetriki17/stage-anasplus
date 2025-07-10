@@ -22,6 +22,10 @@ class Branch extends Model
         return $this->hasMany(BranchAvailability::class);
     }
 
+    public function machines()
+    {
+        return $this->hasMany(Machine::class);
+    }
     public function getAvailabilityForDay($dayOfWeek)
     {
         return $this->availabilities()
