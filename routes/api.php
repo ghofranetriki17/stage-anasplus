@@ -8,6 +8,10 @@ use App\Http\Controllers\Api\BranchAvailabilityController;
 use App\Http\Controllers\Api\MachineController;
 use App\Http\Controllers\Api\ChargeController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\MovementController;
+use App\Http\Controllers\Api\ExerciseController;
+use App\Http\Controllers\Api\WorkoutController;
+use App\Http\Controllers\Api\ProgrammeController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -45,3 +49,24 @@ Route::apiResource('charges', ChargeController::class);
 
 // Category routes
 Route::apiResource('categories', CategoryController::class);
+
+// Programme routes
+Route::apiResource('programmes', ProgrammeController::class);
+Route::patch('programmes/{programme}/activate', [ProgrammeController::class, 'activate']);
+
+// Workout routes
+Route::apiResource('workouts', WorkoutController::class);
+Route::patch('workouts/{workout}/exercises/{exercise}/progress', [WorkoutController::class, 'updateExerciseProgress']);
+
+// Movement routes
+Route::apiResource('movements', MovementController::class);
+
+// Exercise routes
+Route::apiResource('exercises', ExerciseController::class);
+Route::get('machines/{machine}/charges', [ExerciseController::class, 'getChargesForMachine']);
+
+
+Route::get('workouts/{workout}/exercises', [WorkoutController::class, 'getExercises']);
+Route::post('workouts/{workout}/exercises', [WorkoutController::class, 'addExercise']);
+Route::delete('workouts/{workout}/exercises/{exercise}', [WorkoutController::class, 'removeExercise']);
+Route::patch('workouts/{workout}/exercises/{exercise}/progress', [WorkoutController::class, 'updateExerciseProgress']);
