@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\MovementController;
 use App\Http\Controllers\Api\ExerciseController;
 use App\Http\Controllers\Api\WorkoutController;
 use App\Http\Controllers\Api\ProgrammeController;
+use App\Http\Controllers\Api\UserProgressController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -21,6 +22,8 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
+      // User Progress routes
+   
 });
 
 // Branch routes
@@ -70,3 +73,6 @@ Route::get('workouts/{workout}/exercises', [WorkoutController::class, 'getExerci
 Route::post('workouts/{workout}/exercises', [WorkoutController::class, 'addExercise']);
 Route::delete('workouts/{workout}/exercises/{exercise}', [WorkoutController::class, 'removeExercise']);
 Route::patch('workouts/{workout}/exercises/{exercise}/progress', [WorkoutController::class, 'updateExerciseProgress']);
+
+Route::apiResource('user-progresses', UserProgressController::class);
+Route::get('user-progresses/history', [UserProgressController::class, 'history']);

@@ -10,7 +10,7 @@ class MovementController extends Controller
 {
     public function index()
     {
-        $movements = Movement::with('exercises')->get();
+        $movements = Movement::with('exercises')->get();//yomkn nhotha ka amthila ll les exercuces yomkn nahiha
         return response()->json($movements);
     }
 
