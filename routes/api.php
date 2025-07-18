@@ -17,12 +17,16 @@ use App\Http\Controllers\Api\UserProgressController;
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-
+// Temporary public route (remove after auth fix)
+//Route::get('/user-progresses/all', [UserProgressController::class, 'index']);
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
       // User Progress routes
+      
+Route::apiResource('user-progresses', UserProgressController::class);
+Route::get('user-progresses/history', [UserProgressController::class, 'history']);
    
 });
 
@@ -74,5 +78,3 @@ Route::post('workouts/{workout}/exercises', [WorkoutController::class, 'addExerc
 Route::delete('workouts/{workout}/exercises/{exercise}', [WorkoutController::class, 'removeExercise']);
 Route::patch('workouts/{workout}/exercises/{exercise}/progress', [WorkoutController::class, 'updateExerciseProgress']);
 
-Route::apiResource('user-progresses', UserProgressController::class);
-Route::get('user-progresses/history', [UserProgressController::class, 'history']);

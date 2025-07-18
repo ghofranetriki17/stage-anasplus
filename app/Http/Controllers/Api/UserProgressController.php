@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Api;
+use Illuminate\Support\Facades\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserProgress;
@@ -10,45 +11,108 @@ use Illuminate\Support\Facades\Validator;
 
 class UserProgressController extends Controller
 {
-    public function index()
-    {
-        try {
-            return UserProgress::all();
-        } catch (\Exception $e) {
+public function index()
+{
+    $user = Auth::user();
+
+    $progresses = UserProgress::where('user_id', $user->id)
+                              ->orderByDesc('recorded_at')
+                              ->get();
+
+    return response()->json($progresses);
+}
+     /* public function index(Request $request)
+{
+    try {
+        $user = $request->user();
+        
+        if (!$user) {
             return response()->json([
-                'error' => 'Failed to fetch progress data',
-                'details' => $e->getMessage()
-            ], 500);
+                'error' => 'Unauthenticated',
+                'message' => 'User not authenticated'
+            ], 401);
         }
+        
+        $progresses = UserProgress::where('user_id', $user->id)
+            ->orderBy('recorded_at', 'desc')
+            ->get();
+            
+        return response()->json($progresses);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Failed to fetch progress data',
+            'details' => $e->getMessage()
+        ], 500);
+    }
+}*/
+
+
+  public function store(Request $request)
+{
+    $user = $request->user(); // ou Auth::user();
+
+    $validator = Validator::make($request->all(), [
+        'weight' => 'required|numeric|min:30|max:300',
+        'height' => 'required|numeric|min:100|max:250',
+        'body_fat' => 'nullable|numeric|min:0|max:100',
+        'muscle_mass' => 'nullable|numeric|min:0|max:100',
+        'recorded_at' => 'required|date',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'errors' => $validator->errors()
+        ], 422);
     }
 
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'user_id' => 'required|exists:users,id',
-            'weight' => 'required|numeric|min:30|max:300',
-            'height' => 'required|numeric|min:100|max:250',
-            'recorded_at' => 'required|date'
-        ]);
+    try {
+        $data = $request->only(['weight', 'height', 'body_fat', 'muscle_mass', 'recorded_at']);
+        $data['user_id'] = $user->id;
+        $data['imc'] = $data['weight'] / (($data['height'] / 100) ** 2);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'errors' => $validator->errors()
-            ], 422);
-        }
+        $progress = UserProgress::create($data);
 
-        try {
-            $data = $request->all();
-            $data['imc'] = $data['weight'] / (($data['height']/100) ** 2);
-            
-            $progress = UserProgress::create($data);
-            
-            return response()->json($progress, 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Failed to create progress record',
-                'details' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json($progress, 201);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Failed to create progress record',
+            'details' => $e->getMessage()
+        ], 500);
     }
+}
+
+   /* public function store(Request $request)
+{
+    $user = $request->user();
+
+    $validator = Validator::make($request->all(), [
+        'weight' => 'required|numeric|min:30|max:300',
+        'height' => 'required|numeric|min:100|max:250',
+        'body_fat' => 'nullable|numeric|min:0|max:100',
+        'muscle_mass' => 'nullable|numeric|min:0|max:100',
+        'recorded_at' => 'required|date',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    try {
+        $data = $request->only(['weight', 'height', 'body_fat', 'muscle_mass', 'recorded_at']);
+        $data['user_id'] = $user->id;
+        $data['imc'] = $data['weight'] / (($data['height'] / 100) ** 2);
+
+        $progress = UserProgress::create($data);
+
+        return response()->json($progress, 201);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Failed to create progress record',
+            'details' => $e->getMessage()
+        ], 500);
+    }
+}*/
+
 }
