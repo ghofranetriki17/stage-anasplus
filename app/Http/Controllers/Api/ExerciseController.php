@@ -70,11 +70,32 @@ class ExerciseController extends Controller
         return response()->json($exercise->load(['movement', 'machine', 'charge']));
     }
 
-    public function destroy(Exercise $exercise)
-    {
-        $exercise->delete();
-        return response()->json(['message' => 'Exercise deleted successfully']);
-    }
+ public function destroy(Exercise $exercise)
+{
+    $exercise->delete();
+    return response()->json(['message' => 'Exercise deleted successfully']);
+}
+public function updateExercisePivot(Request $request, $workoutId, $exerciseId)
+{
+    $workout = Workout::findOrFail($workoutId);
+
+    $validated = $request->validate([
+        'is_done' => 'required|boolean',
+        // ajoute ici d’autres champs du pivot si besoin
+    ]);
+
+    // Met à jour le pivot
+    $workout->exercises()->updateExistingPivot($exerciseId, $validated);
+
+    // Récupérer le pivot mis à jour
+    $updatedPivot = $workout->exercises()->where('exercise_id', $exerciseId)->first()->pivot;
+
+    return response()->json([
+        'message' => 'Pivot updated',
+        'pivot' => $updatedPivot,
+    ]);
+}
+
 
     public function getChargesForMachine($machineId)
     {

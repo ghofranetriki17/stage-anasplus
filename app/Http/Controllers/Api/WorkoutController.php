@@ -252,80 +252,57 @@ class WorkoutController extends Controller
             ], 500);
         }
     }
+public function addExercise(Request $request, $workout)
+{
+    $workout = Workout::findOrFail($workout); // 👈 on charge manuellement
 
-    public function addExercise(Request $request, Workout $workout)
-    {
-        try {
-            $user = Auth::user();
-            
-            if (!$user) {
-                return response()->json([
-                    'error' => 'Unauthenticated',
-                    'message' => 'User not authenticated'
-                ], 401);
-            }
-            
-            // Vérifier que le workout appartient à l'utilisateur connecté
-            if ($workout->user_id !== $user->id) {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
+    $validated = $request->validate([
+        'exercise_id' => 'required|exists:exercises,id',
+        'achievement' => 'nullable|numeric|min:0|max:100',
+        'is_done' => 'boolean',
+        'order' => 'nullable|integer|min:0',
+    ]);
 
-            $validated = $request->validate([
-                'exercise_id' => 'required|exists:exercises,id',
-                'achievement' => 'nullable|numeric|min:0|max:100',
-                'is_done' => 'boolean',
-                'order' => 'nullable|integer|min:0',
-            ]);
-
-            // Check if exercise is already in the workout
-            if ($workout->exercises()->where('exercise_id', $validated['exercise_id'])->exists()) {
-                return response()->json(['error' => 'Exercise already exists in this workout'], 400);
-            }
-
-            $workout->exercises()->attach($validated['exercise_id'], [
-                'achievement' => $validated['achievement'] ?? 0,
-                'is_done' => $validated['is_done'] ?? false,
-                'order' => $validated['order'] ?? 0,
-            ]);
-
-            $exercise = Exercise::with(['movement', 'machine', 'charge'])->find($validated['exercise_id']);
-            return response()->json($exercise, 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Failed to add exercise',
-                'details' => $e->getMessage()
-            ], 500);
-        }
+    if ($workout->exercises()->where('exercise_id', $validated['exercise_id'])->exists()) {
+        return response()->json(['error' => 'Exercise already linked to this workout'], 400);
     }
 
-    public function removeExercise(Workout $workout, Exercise $exercise)
-    {
-        try {
-            $user = Auth::user();
-            
-            if (!$user) {
-                return response()->json([
-                    'error' => 'Unauthenticated',
-                    'message' => 'User not authenticated'
-                ], 401);
-            }
-            
-            // Vérifier que le workout appartient à l'utilisateur connecté
-            if ($workout->user_id !== $user->id) {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
+    $workout->exercises()->attach($validated['exercise_id'], [
+        'achievement' => $validated['achievement'] ?? 0,
+        'is_done' => $validated['is_done'] ?? false,
+        'order' => $validated['order'] ?? 0,
+    ]);
 
-            if (!$workout->exercises()->where('exercise_id', $exercise->id)->exists()) {
-                return response()->json(['error' => 'Exercise not found in this workout'], 404);
-            }
+    $exercise = Exercise::with(['movement', 'machine', 'charge'])->find($validated['exercise_id']);
 
-            $workout->exercises()->detach($exercise->id);
-            return response()->json(['message' => 'Exercise removed from workout successfully']);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Failed to remove exercise',
-                'details' => $e->getMessage()
-            ], 500);
-        }
-    }
+    return response()->json($exercise, 201);
+}
+public function removeExercise(Workout $workout, Exercise $exercise)
+{
+    $workout->exercises()->detach($exercise->id);
+    return response()->json(['message' => 'Exercise removed from workout successfully']);
+}
+
+
+public function updateExercisePivot(Request $request, $workoutId, $exerciseId)
+{
+    $workout = Workout::findOrFail($workoutId);
+
+    $validated = $request->validate([
+        'is_done' => 'sometimes|boolean',
+        'achievement' => 'sometimes|numeric|min:0|max:100',
+        'order' => 'sometimes|integer|min:0',
+    ]);
+
+    $workout->exercises()->updateExistingPivot($exerciseId, $validated);
+
+    $updatedPivot = $workout->exercises()->where('exercise_id', $exerciseId)->first()->pivot;
+
+    return response()->json([
+        'message' => 'Pivot updated',
+        'pivot' => $updatedPivot,
+    ]);
+}
+
+
 }

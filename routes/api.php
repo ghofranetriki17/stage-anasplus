@@ -10,9 +10,9 @@ use App\Http\Controllers\Api\ChargeController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\MovementController;
 use App\Http\Controllers\Api\ExerciseController;
-use App\Http\Controllers\Api\WorkoutController;
 use App\Http\Controllers\Api\ProgrammeController;
 use App\Http\Controllers\Api\UserProgressController;
+use App\Http\Controllers\Api\WorkoutController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -30,13 +30,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // Workout routes - DÉPLACÉES DANS LE GROUPE PROTÉGÉ
     Route::apiResource('workouts', WorkoutController::class);
     Route::get('workouts/{workout}/exercises', [WorkoutController::class, 'getExercises']);
-    Route::post('workouts/{workout}/exercises', [WorkoutController::class, 'addExercise']);
     Route::delete('workouts/{workout}/exercises/{exercise}', [WorkoutController::class, 'removeExercise']);
     Route::patch('workouts/{workout}/exercises/{exercise}/progress', [WorkoutController::class, 'updateExerciseProgress']);
+
 });
 
 // Branch routes (peuvent rester publiques si nécessaire)
 Route::apiResource('branches', BranchController::class);
+Route::post('/workouts/{workout}/exercises', [WorkoutController::class, 'addExercise']);
 
 // Branch availability routes
 Route::prefix('branches/{branchId}/availabilities')->group(function () {
@@ -46,6 +47,10 @@ Route::prefix('branches/{branchId}/availabilities')->group(function () {
     Route::put('/{id}', [BranchAvailabilityController::class, 'update']);
     Route::delete('/{id}', [BranchAvailabilityController::class, 'destroy']);
 });
+Route::delete('/exercises/{exercise}', [ExerciseController::class, 'destroy']);
+Route::patch('/workouts/{workout}/exercises/{exercise}', [WorkoutController::class, 'updateExercisePivot']);
+
+Route::delete('/workouts/{workout}/exercises/{exercise}', [WorkoutController::class, 'removeExercise']);
 
 // Route to get availability for a specific day
 Route::get('branches/{branchId}/availability/{dayOfWeek}', [BranchAvailabilityController::class, 'getAvailabilityForDay']);

@@ -45,10 +45,11 @@ class Exercise extends Model
         return $this->hasMany(WorkoutExercise::class);
     }
 
-    public function workouts()
-    {
-        return $this->belongsToMany(Workout::class, 'workout_exercises')
-                    ->withPivot('achievement', 'is_done', 'order')
-                    ->withTimestamps();
-    }
+ // In Exercise.php model
+public function workouts()
+{
+    return $this->belongsToMany(Workout::class)
+        ->withPivot(['achievement', 'is_done', 'order'])
+        ->withTimestamps();
+}
 }
