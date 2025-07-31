@@ -1,5 +1,5 @@
 <?php
-
+// Updated Branch Model
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,6 +26,17 @@ class Branch extends Model
     {
         return $this->hasMany(Machine::class);
     }
+
+    public function coaches()
+    {
+        return $this->hasMany(Coach::class);
+    }
+
+    public function groupTrainingSessions()
+    {
+        return $this->hasMany(GroupTrainingSession::class);
+    }
+
     public function getAvailabilityForDay($dayOfWeek)
     {
         return $this->availabilities()

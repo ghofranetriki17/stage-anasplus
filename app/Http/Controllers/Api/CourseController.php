@@ -1,21 +1,21 @@
 <?php
-
+// Controller: CourseController.php
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Branch;
+use App\Models\Course;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class BranchController extends Controller
+class CourseController extends Controller
 {
     public function index()
     {
-        $branches = Branch::with('availabilities')->get();
+        $courses = Course::with('groupTrainingSessions')->get();
         
         return response()->json([
             'success' => true,
-            'data' => $branches
+            'data' => $courses
         ]);
     }
 
@@ -23,10 +23,7 @@ class BranchController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'address' => 'required|string|max:255',
-            'city' => 'required|string|max:255',
-            'phone' => 'required|string|max:20',
-            'email' => 'required|email|max:255'
+            'description' => 'nullable|string'
         ]);
 
         if ($validator->fails()) {
@@ -37,49 +34,46 @@ class BranchController extends Controller
             ], 422);
         }
 
-        $branch = Branch::create($request->all());
+        $course = Course::create($request->all());
 
         return response()->json([
             'success' => true,
-            'message' => 'Branch created successfully',
-            'data' => $branch
+            'message' => 'Course created successfully',
+            'data' => $course
         ], 201);
     }
 
     public function show($id)
     {
-        $branch = Branch::with('availabilities')->find($id);
+        $course = Course::with('groupTrainingSessions')->find($id);
 
-        if (!$branch) {
+        if (!$course) {
             return response()->json([
                 'success' => false,
-                'message' => 'Branch not found'
+                'message' => 'Course not found'
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $branch
+            'data' => $course
         ]);
     }
 
     public function update(Request $request, $id)
     {
-        $branch = Branch::find($id);
+        $course = Course::find($id);
 
-        if (!$branch) {
+        if (!$course) {
             return response()->json([
                 'success' => false,
-                'message' => 'Branch not found'
+                'message' => 'Course not found'
             ], 404);
         }
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
-            'address' => 'sometimes|required|string|max:255',
-            'city' => 'sometimes|required|string|max:255',
-            'phone' => 'sometimes|required|string|max:20',
-            'email' => 'sometimes|required|email|max:255'
+            'description' => 'nullable|string'
         ]);
 
         if ($validator->fails()) {
@@ -90,46 +84,31 @@ class BranchController extends Controller
             ], 422);
         }
 
-        $branch->update($request->all());
+        $course->update($request->all());
 
         return response()->json([
             'success' => true,
-            'message' => 'Branch updated successfully',
-            'data' => $branch
+            'message' => 'Course updated successfully',
+            'data' => $course
         ]);
     }
-public function getCoaches($branchId)
-{
-    $coaches = \App\Models\Coach::with([
-        'specialities:id,name',
-        'availabilities:id,coach_id,day_of_week,start_time,end_time'
-    ])
-    ->where('branch_id', $branchId)
-    ->get(['id', 'name', 'email', 'phone', 'bio', 'branch_id']);
-
-    return response()->json([
-        'success' => true,
-        'data' => $coaches
-    ]);
-}
 
     public function destroy($id)
     {
-        $branch = Branch::find($id);
+        $course = Course::find($id);
 
-        if (!$branch) {
+        if (!$course) {
             return response()->json([
                 'success' => false,
-                'message' => 'Branch not found'
+                'message' => 'Course not found'
             ], 404);
         }
 
-        $branch->delete();
+        $course->delete();
 
         return response()->json([
             'success' => true,
-            'message' => 'Branch deleted successfully'
+            'message' => 'Course deleted successfully'
         ]);
     }
-    
 }

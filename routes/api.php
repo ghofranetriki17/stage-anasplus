@@ -1,7 +1,4 @@
 <?php
-
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\BranchAvailabilityController;
@@ -13,7 +10,11 @@ use App\Http\Controllers\Api\ExerciseController;
 use App\Http\Controllers\Api\ProgrammeController;
 use App\Http\Controllers\Api\UserProgressController;
 use App\Http\Controllers\Api\WorkoutController;
-
+use App\Http\Controllers\Api\CoachController;
+use App\Http\Controllers\Api\SpecialityController;
+use App\Http\Controllers\Api\CourseController;
+use App\Http\Controllers\Api\CoachAvailabilityController;
+use App\Http\Controllers\Api\GroupTrainingSessionController;
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -77,3 +78,58 @@ Route::apiResource('movements', MovementController::class);
 // Exercise routes
 Route::apiResource('exercises', ExerciseController::class);
 Route::get('machines/{machine}/charges', [ExerciseController::class, 'getChargesForMachine']);
+// Coach routes
+Route::apiResource('coaches', CoachController::class);
+
+// Speciality routes
+Route::apiResource('specialities', SpecialityController::class);
+
+// Course routes
+Route::apiResource('courses', CourseController::class);
+
+// Coach Availability routes
+Route::apiResource('coach-availabilities', CoachAvailabilityController::class);
+Route::get('coaches/{coachId}/availabilities', [CoachAvailabilityController::class, 'getByCoach']);
+
+// Group Training Session routes
+Route::apiResource('group-training-sessions', GroupTrainingSessionController::class);
+Route::get('branches/{branchId}/sessions', [GroupTrainingSessionController::class, 'getByBranch']);
+Route::get('coaches/{coachId}/sessions', [GroupTrainingSessionController::class, 'getByCoach']);
+Route::get('sessions/upcoming', [GroupTrainingSessionController::class, 'getUpcoming']);
+Route::get('sessions/filter', [GroupTrainingSessionController::class, 'getSessionsByFilters']);
+Route::post('sessions/{id}/join', [GroupTrainingSessionController::class, 'joinSession']);
+Route::post('sessions/{id}/leave', [GroupTrainingSessionController::class, 'leaveSession']);
+
+// Additional useful routes
+Route::get('coaches/{coachId}/specialities', function($coachId) {
+    $coach = \App\Models\Coach::with('specialities')->find($coachId);
+    if (!$coach) {
+        return response()->json(['success' => false, 'message' => 'Coach not found'], 404);
+    }
+    return response()->json(['success' => true, 'data' => $coach->specialities]);
+});
+
+Route::post('coaches/{coachId}/specialities', function(Request $request, $coachId) {
+    $coach = \App\Models\Coach::find($coachId);
+    if (!$coach) {
+        return response()->json(['success' => false, 'message' => 'Coach not found'], 404);
+    }
+    
+    $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+        'speciality_ids' => 'required|array',
+        'speciality_ids.*' => 'exists:specialities,id'
+    ]);
+    
+    if ($validator->fails()) {
+        return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+    }
+    
+    $coach->specialities()->sync($request->speciality_ids);
+    return response()->json(['success' => true, 'message' => 'Specialities updated successfully']);
+});
+Route::get('/branches/{branch}/coaches', [BranchController::class, 'getCoaches']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/sessions/{id}/book', [GroupTrainingSessionController::class, 'bookSession']);
+    Route::post('/sessions/{id}/cancel', [GroupTrainingSessionController::class, 'cancelBooking']);
+    Route::get('/user/bookings', [GroupTrainingSessionController::class, 'getUserBookings']);
+});

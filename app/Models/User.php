@@ -31,4 +31,11 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserProgress::class);
     }
+    // User.php
+public function groupSessions()
+{
+    return $this->belongsToMany(GroupTrainingSession::class)
+        ->withTimestamps()
+        ->withPivot('booked_at');
+}
 }
