@@ -102,17 +102,17 @@ public function getCoaches($branchId)
 {
     $coaches = \App\Models\Coach::with([
         'specialities:id,name',
-        'availabilities:id,coach_id,day_of_week,start_time,end_time'
+        'availabilities:id,coach_id,day_of_week,start_time,end_time',
+        'videos:id,coach_id,title,description,video_url'
     ])
     ->where('branch_id', $branchId)
-    ->get(['id', 'name', 'email', 'phone', 'bio', 'branch_id']);
+    ->get(); // Retirez la limitation des colonnes
 
     return response()->json([
         'success' => true,
         'data' => $coaches
     ]);
 }
-
     public function destroy($id)
     {
         $branch = Branch::find($id);

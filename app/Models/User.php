@@ -32,9 +32,11 @@ class User extends Authenticatable
         return $this->hasMany(UserProgress::class);
     }
     // User.php
+// Add this to your User.php model
+
 public function groupSessions()
 {
-    return $this->belongsToMany(GroupTrainingSession::class)
+    return $this->belongsToMany(GroupTrainingSession::class, 'group_session_bookings')
         ->withTimestamps()
         ->withPivot('booked_at');
 }

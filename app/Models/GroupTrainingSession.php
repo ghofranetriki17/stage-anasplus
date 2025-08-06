@@ -20,7 +20,7 @@ class GroupTrainingSession extends Model
         'is_free',
         'is_for_kids',
         'max_participants',
-        'current_participants'
+          'current_participants'
     ];
 
     protected $casts = [
@@ -45,22 +45,61 @@ class GroupTrainingSession extends Model
         return $this->belongsTo(Course::class);
     }
 
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'group_session_bookings')
+            ->withTimestamps()
+            ->withPivot('booked_at');
+    }
+
+    // Helper methods
+    public function getCurrentParticipantsCount()
+    {
+        return $this->users()->count();
+    }
+
     public function isFullyBooked()
     {
-        return $this->max_participants && $this->current_participants >= $this->max_participants;
+        if (!$this->max_participants) {
+            return false; // Unlimited capacity
+        }
+        return $this->getCurrentParticipantsCount() >= $this->max_participants;
     }
 
     public function hasAvailableSpots()
     {
-        return !$this->max_participants || $this->current_participants < $this->max_participants;
+        return !$this->isFullyBooked();
     }
-    // GroupTrainingSession.php
-public function users()
-{
-    return $this->belongsToMany(User::class)
-        ->withTimestamps()
-        ->withPivot('booked_at');
-}
 
+    public function getAvailableSpots()
+    {
+        if (!$this->max_participants) {
+            return null; // Unlimited capacity
+        }
+        return $this->max_participants - $this->getCurrentParticipantsCount();
+    }
 
+    public function isUserBooked($userId)
+    {
+        return $this->users()->where('user_id', $userId)->exists();
+    }
+
+    // Scope for upcoming sessions
+    public function scopeUpcoming($query)
+    {
+        return $query->where('session_date', '>', now());
+    }
+
+    // Scope for available sessions
+    public function scopeAvailable($query)
+    {
+        return $query->whereRaw('
+            max_participants IS NULL 
+            OR max_participants > (
+                SELECT COUNT(*) 
+                FROM group_session_bookings 
+                WHERE group_training_session_id = group_training_sessions.id
+            )
+        ');
+    }
 }

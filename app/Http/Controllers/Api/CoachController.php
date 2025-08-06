@@ -59,7 +59,7 @@ class CoachController extends Controller
 
     public function show($id)
     {
-        $coach = Coach::with(['branch', 'specialities', 'availabilities', 'groupTrainingSessions'])->find($id);
+$coach = Coach::with(['branch', 'specialities', 'availabilities', 'groupTrainingSessions', 'videos'])->find($id);
 
         if (!$coach) {
             return response()->json([

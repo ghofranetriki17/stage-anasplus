@@ -60,5 +60,10 @@ class Coach extends Model
             ->where('is_available', true)
             ->get();
     }
+    public function videos()
+{
+    return $this->hasMany(Video::class);
+}
+
 }
 

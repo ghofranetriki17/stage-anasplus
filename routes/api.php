@@ -133,3 +133,30 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/sessions/{id}/cancel', [GroupTrainingSessionController::class, 'cancelBooking']);
     Route::get('/user/bookings', [GroupTrainingSessionController::class, 'getUserBookings']);
 });
+use App\Http\Controllers\Api\VideoController;
+
+Route::get('/coaches/{coachId}/videos', [VideoController::class, 'index']);
+Route::post('/videos', [VideoController::class, 'store']);
+Route::delete('/videos/{id}', [VideoController::class, 'destroy']);
+// Add these routes to your api.php routes file
+
+Route::middleware('auth:sanctum')->group(function () {
+    // Group Training Sessions
+    Route::get('/group-sessions', [GroupTrainingSessionController::class, 'index']);
+    Route::post('/group-sessions', [GroupTrainingSessionController::class, 'store']);
+    Route::get('/group-sessions/{id}', [GroupTrainingSessionController::class, 'show']);
+    Route::get('/group-sessions/upcoming', [GroupTrainingSessionController::class, 'getUpcoming']);
+    Route::get('/group-sessions/available', [GroupTrainingSessionController::class, 'getAvailable']);
+    
+    // Branch-specific sessions
+    Route::get('/branches/{branchId}/sessions', [GroupTrainingSessionController::class, 'getByBranch']);
+    
+    // Booking endpoints
+    Route::post('/group-sessions/{sessionId}/book', [GroupTrainingSessionController::class, 'bookSession']);
+    Route::delete('/group-sessions/{sessionId}/book', [GroupTrainingSessionController::class, 'cancelBooking']);
+    Route::get('/group-sessions/{sessionId}/booking-status', [GroupTrainingSessionController::class, 'checkBookingStatus']);
+    Route::get('/group-sessions/{sessionId}/bookings', [GroupTrainingSessionController::class, 'getSessionBookings']);
+    
+    // User bookings
+    Route::get('/user/bookings', [GroupTrainingSessionController::class, 'getUserBookings']);
+});

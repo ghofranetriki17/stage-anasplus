@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\GroupTrainingSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 class GroupTrainingSessionController extends Controller
 {
     public function index()
     {
-        $sessions = GroupTrainingSession::with(['branch', 'coach', 'course'])->get();
+        $sessions = GroupTrainingSession::with(['branch', 'coach', 'course'])
+            ->withCount('users')
+            ->orderBy('session_date')
+            ->get();
         
         return response()->json([
             'success' => true,
@@ -26,7 +30,7 @@ class GroupTrainingSessionController extends Controller
             'coach_id' => 'required|exists:coaches,id',
             'course_id' => 'required|exists:courses,id',
             'session_date' => 'required|date|after:now',
-            'duration' => 'required|integer|min:15|max:480', // 15 minutes to 8 hours
+            'duration' => 'required|integer|min:15|max:480',
             'title' => 'required|string|max:255',
             'is_for_women' => 'boolean',
             'is_free' => 'boolean',
@@ -54,7 +58,9 @@ class GroupTrainingSessionController extends Controller
 
     public function show($id)
     {
-        $session = GroupTrainingSession::with(['branch', 'coach', 'course'])->find($id);
+        $session = GroupTrainingSession::with(['branch', 'coach', 'course'])
+            ->withCount('users')
+            ->find($id);
 
         if (!$session) {
             return response()->json([
@@ -66,74 +72,13 @@ class GroupTrainingSessionController extends Controller
         return response()->json([
             'success' => true,
             'data' => $session
-        ]);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $session = GroupTrainingSession::find($id);
-
-        if (!$session) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Group training session not found'
-            ], 404);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'branch_id' => 'sometimes|required|exists:branches,id',
-            'coach_id' => 'sometimes|required|exists:coaches,id',
-            'course_id' => 'sometimes|required|exists:courses,id',
-            'session_date' => 'sometimes|required|date',
-            'duration' => 'sometimes|required|integer|min:15|max:480',
-            'title' => 'sometimes|required|string|max:255',
-            'is_for_women' => 'boolean',
-            'is_free' => 'boolean',
-            'is_for_kids' => 'boolean',
-            'max_participants' => 'nullable|integer|min:1',
-            'current_participants' => 'sometimes|integer|min:0'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation errors',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $session->update($request->all());
-        $session->load(['branch', 'coach', 'course']);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Group training session updated successfully',
-            'data' => $session
-        ]);
-    }
-
-    public function destroy($id)
-    {
-        $session = GroupTrainingSession::find($id);
-
-        if (!$session) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Group training session not found'
-            ], 404);
-        }
-
-        $session->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Group training session deleted successfully'
         ]);
     }
 
     public function getByBranch($branchId)
     {
         $sessions = GroupTrainingSession::with(['coach', 'course'])
+            ->withCount('users')
             ->where('branch_id', $branchId)
             ->orderBy('session_date')
             ->get();
@@ -144,23 +89,169 @@ class GroupTrainingSessionController extends Controller
         ]);
     }
 
-    public function getByCoach($coachId)
+    public function bookSession(Request $request, $sessionId)
     {
-        $sessions = GroupTrainingSession::with(['branch', 'course'])
-            ->where('coach_id', $coachId)
+        try {
+            DB::beginTransaction();
+
+            $user = $request->user();
+            $session = GroupTrainingSession::findOrFail($sessionId);
+
+            if ($session->session_date < now()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot book a session that has already started or ended'
+                ], 400);
+            }
+
+            if ($session->isUserBooked($user->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You have already booked this session'
+                ], 400);
+            }
+
+            if ($session->isFullyBooked()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This session is fully booked'
+                ], 409);
+            }
+
+            $user->groupSessions()->attach($sessionId, ['booked_at' => now()]);
+
+            // ✅ Mise à jour du champ current_participants
+            $session->current_participants = $session->getCurrentParticipantsCount();
+            $session->save();
+
+            DB::commit();
+
+            $session->load(['branch', 'coach', 'course']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Session booked successfully',
+                'data' => [
+                    'session' => $session,
+                    'current_participants' => $session->current_participants,
+                    'available_spots' => $session->getAvailableSpots()
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while booking the session'
+            ], 500);
+        }
+    }
+
+    public function cancelBooking(Request $request, $sessionId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $user = $request->user();
+            $session = GroupTrainingSession::findOrFail($sessionId);
+
+            if (!$session->isUserBooked($user->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You have not booked this session'
+                ], 400);
+            }
+
+            if ($session->session_date < now()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot cancel a booking for a session that has already started or ended'
+                ], 400);
+            }
+
+            $user->groupSessions()->detach($sessionId);
+
+            // ✅ Mise à jour du champ current_participants après annulation
+            $session->current_participants = $session->getCurrentParticipantsCount();
+            $session->save();
+
+            DB::commit();
+
+            $session->load(['branch', 'coach', 'course']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Booking cancelled successfully',
+                'data' => [
+                    'session' => $session,
+                    'current_participants' => $session->current_participants,
+                    'available_spots' => $session->getAvailableSpots()
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while cancelling the booking'
+            ], 500);
+        }
+    }
+
+    public function checkBookingStatus(Request $request, $sessionId)
+    {
+        $user = $request->user();
+        $session = GroupTrainingSession::findOrFail($sessionId);
+
+        return response()->json([
+            'success' => true,
+            'isBooked' => $session->isUserBooked($user->id),
+            'currentParticipants' => $session->getCurrentParticipantsCount(),
+            'maxParticipants' => $session->max_participants,
+            'availableSpots' => $session->getAvailableSpots() ?? 999,
+            'isFullyBooked' => $session->isFullyBooked()
+        ]);
+    }
+
+    public function getUserBookings(Request $request)
+    {
+        $user = $request->user();
+        
+        $bookings = $user->groupSessions()
+            ->with(['branch', 'coach', 'course'])
+            ->withPivot('booked_at')
             ->orderBy('session_date')
             ->get();
 
         return response()->json([
             'success' => true,
-            'data' => $sessions
+            'data' => $bookings
         ]);
     }
 
-    public function getUpcoming()
+    public function getSessionBookings(Request $request, $sessionId)
+    {
+        $session = GroupTrainingSession::with(['users' => function($query) {
+            $query->withPivot('booked_at')->orderBy('pivot_booked_at');
+        }])->findOrFail($sessionId);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'session' => $session,
+                'bookings' => $session->users,
+                'total_bookings' => $session->users->count()
+            ]
+        ]);
+    }
+
+    public function getUpcoming(Request $request)
     {
         $sessions = GroupTrainingSession::with(['branch', 'coach', 'course'])
-            ->where('session_date', '>', now())
+            ->withCount('users')
+            ->upcoming()
             ->orderBy('session_date')
             ->get();
 
@@ -170,180 +261,18 @@ class GroupTrainingSessionController extends Controller
         ]);
     }
 
-    public function joinSession(Request $request, $id)
+    public function getAvailable(Request $request)
     {
-        $session = GroupTrainingSession::find($id);
-
-        if (!$session) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Group training session not found'
-            ], 404);
-        }
-
-        if ($session->isFullyBooked()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Session is fully booked'
-            ], 400);
-        }
-
-        $session->increment('current_participants');
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Successfully joined the session',
-            'data' => $session->fresh(['branch', 'coach', 'course'])
-        ]);
-    }
-
-    public function leaveSession(Request $request, $id)
-    {
-        $session = GroupTrainingSession::find($id);
-
-        if (!$session) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Group training session not found'
-            ], 404);
-        }
-
-        if ($session->current_participants > 0) {
-            $session->decrement('current_participants');
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Successfully left the session',
-            'data' => $session->fresh(['branch', 'coach', 'course'])
-        ]);
-    }
-
-    public function getSessionsByFilters(Request $request)
-    {
-        $query = GroupTrainingSession::with(['branch', 'coach', 'course']);
-
-        // Filter by branch
-        if ($request->has('branch_id')) {
-            $query->where('branch_id', $request->branch_id);
-        }
-
-        // Filter by coach
-        if ($request->has('coach_id')) {
-            $query->where('coach_id', $request->coach_id);
-        }
-
-        // Filter by course
-        if ($request->has('course_id')) {
-            $query->where('course_id', $request->course_id);
-        }
-
-        // Filter by date range
-        if ($request->has('start_date')) {
-            $query->where('session_date', '>=', $request->start_date);
-        }
-
-        if ($request->has('end_date')) {
-            $query->where('session_date', '<=', $request->end_date);
-        }
-
-        // Filter by session type
-        if ($request->has('is_for_women')) {
-            $query->where('is_for_women', $request->boolean('is_for_women'));
-        }
-
-        if ($request->has('is_for_kids')) {
-            $query->where('is_for_kids', $request->boolean('is_for_kids'));
-        }
-
-        if ($request->has('is_free')) {
-            $query->where('is_free', $request->boolean('is_free'));
-        }
-
-        // Filter by availability
-        if ($request->has('available_only') && $request->boolean('available_only')) {
-            $query->whereRaw('current_participants < max_participants OR max_participants IS NULL');
-        }
-
-        $sessions = $query->orderBy('session_date')->get();
+        $sessions = GroupTrainingSession::with(['branch', 'coach', 'course'])
+            ->withCount('users')
+            ->upcoming()
+            ->available()
+            ->orderBy('session_date')
+            ->get();
 
         return response()->json([
             'success' => true,
             'data' => $sessions
         ]);
     }
-    // GroupTrainingSessionController.php
-
-public function bookSession(Request $request, $sessionId)
-{
-    $user = $request->user();
-    $session = GroupTrainingSession::findOrFail($sessionId);
-
-    // Check if already booked
-    if ($user->groupSessions()->where('group_training_session_id', $sessionId)->exists()) {
-        return response()->json([
-            'success' => false,
-            'message' => 'You have already booked this session'
-        ], 400);
-    }
-
-    // Check if session is full
-    if ($session->isFullyBooked()) {
-        return response()->json([
-            'success' => false,
-            'message' => 'This session is fully booked'
-        ], 400);
-    }
-
-    // Book the session
-    $user->groupSessions()->attach($sessionId);
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Session booked successfully',
-        'data' => [
-            'session' => $session->fresh(['users', 'branch', 'coach', 'course']),
-            'remaining_spots' => $session->max_participants - $session->users()->count()
-        ]
-    ]);
-}
-
-public function cancelBooking(Request $request, $sessionId)
-{
-    $user = $request->user();
-    $session = GroupTrainingSession::findOrFail($sessionId);
-
-    if (!$user->groupSessions()->where('group_training_session_id', $sessionId)->exists()) {
-        return response()->json([
-            'success' => false,
-            'message' => 'You have not booked this session'
-        ], 400);
-    }
-
-    $user->groupSessions()->detach($sessionId);
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Booking cancelled successfully',
-        'data' => [
-            'session' => $session->fresh(['users', 'branch', 'coach', 'course']),
-            'remaining_spots' => $session->max_participants - $session->users()->count()
-        ]
-    ]);
-}
-
-public function getUserBookings(Request $request)
-{
-    $user = $request->user();
-    
-    $bookings = $user->groupSessions()
-        ->with(['branch', 'coach', 'course'])
-        ->orderBy('session_date')
-        ->get();
-
-    return response()->json([
-        'success' => true,
-        'data' => $bookings
-    ]);
-}
 }
