@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,20 +25,18 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password' => 'hashed',
+        'password' => 'hashed', // OK on Laravel 10/11
     ];
 
     public function progresses()
     {
         return $this->hasMany(UserProgress::class);
     }
-    // User.php
-// Add this to your User.php model
 
-public function groupSessions()
-{
-    return $this->belongsToMany(GroupTrainingSession::class, 'group_session_bookings')
-        ->withTimestamps()
-        ->withPivot('booked_at');
-}
+    public function groupSessions()
+    {
+        return $this->belongsToMany(GroupTrainingSession::class, 'group_session_bookings')
+            ->withTimestamps()
+            ->withPivot('booked_at');
+    }
 }

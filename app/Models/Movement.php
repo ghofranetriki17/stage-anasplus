@@ -9,11 +9,11 @@ class Movement extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'name',
-        'description',
-        'video_url'
+  protected $fillable = [
+        'name','description','video_url',
+        'media_url','media_type',
     ];
+
 
     public function exercises()
     {

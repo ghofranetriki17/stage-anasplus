@@ -155,6 +155,21 @@ class MachineController extends Controller
             'message' => 'Machine deleted successfully'
         ]);
     }
+public function syncCharges(Request $request, Machine $machine)
+{
+    $validated = $request->validate([
+        'charge_ids' => 'required|array',
+        'charge_ids.*' => 'exists:charges,id',
+    ]);
+
+    $machine->charges()->sync($validated['charge_ids']);
+
+    return response()->json([
+        'message' => 'Charges synchronisées avec succès',
+        'machine' => $machine->load('charges')
+    ]);
+}
+
 
     public function getByBranch($branchId)
     {

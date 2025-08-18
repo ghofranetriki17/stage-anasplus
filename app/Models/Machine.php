@@ -23,10 +23,16 @@ class Machine extends Model
         return $this->belongsTo(Branch::class);
     }
 
-    public function charges()
-    {
-        return $this->belongsToMany(Charge::class, 'machine_charges');
-    }
+   public function charges()
+{
+    return $this->belongsToMany(
+        Charge::class,       // related model
+        'machine_charges',   // pivot table
+        'machine_id',        // foreign key for Machine
+        'charge_id'          // foreign key for Charge
+    )->withTimestamps();
+}
+
 
     public function categories()
     {

@@ -17,10 +17,16 @@ class Charge extends Model
         'weight' => 'decimal:2'
     ];
 
-    public function machines()
-    {
-        return $this->belongsToMany(Machine::class, 'machine_charges');
-    }
+   public function machines()
+{
+    return $this->belongsToMany(
+        Machine::class,      // related model
+        'machine_charges',   // pivot table
+        'charge_id',         // foreign key for Charge
+        'machine_id'         // foreign key for Machine
+    )->withTimestamps();
+}
+
 
     public function machineCharges()
     {
