@@ -39,6 +39,7 @@ Route::prefix('branches/{branchId}/availabilities')->group(function () {
     Route::get('/{id}', [BranchAvailabilityController::class, 'show']);
 });
 Route::get('branches/{branchId}/availability/{dayOfWeek}', [BranchAvailabilityController::class, 'getAvailabilityForDay']);
+Route::delete('/user-progresses/{id}', [UserProgressController::class, 'destroy']);
 
 // Machine routes (public if needed)
 Route::apiResource('machines', MachineController::class)->only(['index', 'show']);

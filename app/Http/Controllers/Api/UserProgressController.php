@@ -114,5 +114,32 @@ public function index()
         ], 500);
     }
 }*/
+public function destroy($id)
+{
+    // Chercher la progression par ID
+    $progress = UserProgress::find($id);
+
+    if (!$progress) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Progress entry not found'
+        ], 404);
+    }
+
+    try {
+        $progress->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Progress entry deleted successfully'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to delete progress',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 
 }
